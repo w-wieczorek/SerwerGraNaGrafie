@@ -1,0 +1,95 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SerwerGraNaGrafie.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:md="clr-namespace:Markdown.Avalonia;assembly=Markdown.Avalonia"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="SerwerGraNaGrafie.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Name="OknoGlowne"
+        Title="SerwerGraNaGrafie">
+
+    <Design.DataContext>
+        <!-- This only sets the DataContext for the previewer in an IDE,
+             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <TabControl Margin="5">
+        <TabItem Header="Gracze">
+            <DockPanel LastChildFill="True">
+                <Border Height="50" DockPanel.Dock="Top">
+                    <Button Command="{Binding OnWczytajZPliku}"
+                            Margin="0, 10, 0, 10"
+                            IsEnabled="{Binding CanChangePlayers}">
+                        Wczytaj z pliku
+                    </Button>
+                </Border>
+                <Border Width="75" DockPanel.Dock="Right">
+                </Border>
+                <Border Width="75" DockPanel.Dock="Left">
+                </Border>
+                <Border BorderBrush="Black" BorderThickness="1">
+                    <md:MarkdownScrollViewer Markdown="{Binding TableOfPlayers}"/>
+                </Border>
+            </DockPanel>
+        </TabItem>
+        <TabItem Header="Turniej">
+            <DockPanel LastChildFill="True">
+                <Border Height="50" DockPanel.Dock="Top">
+                    <StackPanel HorizontalAlignment="Center" 
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal"
+                                Spacing="25">
+                        <TextBlock Padding="0, 5, 0, 0"
+                                   IsVisible="{Binding TournamentNotInProgress}"
+                                   FontSize="15">
+                            Liczba rund:
+                        </TextBlock>
+                        <TextBox Width="20"
+                                 IsVisible="{Binding TournamentNotInProgress}"
+                                 Text="{Binding LiczbaRund, Mode=TwoWay}"/>
+                        <TextBlock Padding="0, 5, 0, 0"
+                                   IsVisible="{Binding TournamentNotInProgress}"
+                                   FontSize="15">
+                            Czas na ruch [ms]:
+                        </TextBlock>
+                        <TextBox Width="30"
+                                 IsVisible="{Binding TournamentNotInProgress}"
+                                 Text="{Binding TimeLimit, Mode=TwoWay}"/>
+                        <Button Command="{Binding OnRozpocznijTurniej}"
+                                IsVisible="{Binding TournamentNotInProgress}"
+                                Margin="20, 0, 0, 0">
+                            Rozpocznij turniej
+                        </Button>
+                        <Button Command="{Binding OnZapiszWyniki}"
+                                IsVisible="{Binding TournamentNotInProgress}"
+                                IsEnabled="{Binding TournamentIsFinished}">
+                            Zapisz wyniki
+                        </Button>
+                    </StackPanel>
+                </Border>
+                <Border Width="2" DockPanel.Dock="Right">
+                </Border>
+                <Border Width="2" DockPanel.Dock="Left">
+                </Border>
+                <Border BorderBrush="Black" BorderThickness="1">
+                    <md:MarkdownScrollViewer Markdown="{Binding TableOfTournament}"/>
+                </Border>
+            </DockPanel>
+        </TabItem>
+        <TabItem Header="Logi">
+            <ScrollViewer Margin="20" 
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Auto">
+                <TextBox IsReadOnly="True" Text="{Binding Logs}"/>
+            </ScrollViewer>                  
+        </TabItem>
+        <TabItem Header="Pomoc">
+            <md:MarkdownScrollViewer Markdown="{Binding PomocMd}"/>
+        </TabItem>
+    </TabControl>
+
+</Window>
