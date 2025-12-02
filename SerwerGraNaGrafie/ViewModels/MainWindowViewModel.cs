@@ -11,7 +11,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SerwerGraNaGrafie.Models;
 
-
 namespace SerwerGraNaGrafie.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject
@@ -110,7 +109,7 @@ public partial class MainWindowViewModel : ObservableObject
         BuildPlayersTableFromList();
     }
 
-    private bool ZapiszRuch(string? message, ref string[] sterty, char color)
+    private bool ZapiszRuch(string? message, bool[] aktywne, int[,] macierz, char color)
     {
         if (string.IsNullOrEmpty(message) || !message.StartsWith("210"))
         {
@@ -122,16 +121,107 @@ public partial class MainWindowViewModel : ObservableObject
             words = words.Append("").ToArray();
         }
         int nr = int.Parse(words[1]);
-        if (nr < 0 || nr > 9 || sterty[nr].Length <= words[2].Length)
+        if (nr < 0 || nr > 399 || !aktywne[nr] || (color == 'p' && nr % 2 != 0) || (color == 'n' && nr % 2 == 0))
         {
             return false;
         }
-        if (sterty[nr].StartsWith(words[2]) && sterty[nr][words[2].Length] == color)
+        for (int i = 0; i < 400; ++i)
         {
-            sterty[nr] = words[2];
-            return true;
+            if (aktywne[i] && macierz[nr, i] == 1)
+            {
+                aktywne[i] = false;
+            }
         }
-        return false;
+        aktywne[nr] = false;
+        return true;
+    } 
+    
+    private void GenerujLosowyGraf(bool[] aktywne, int[,] macierz)
+    {
+        Random rand = new Random();
+        int n = 400;
+        int docelowaLiczbaKrawedzi = 500;
+        
+        // Wyczyść macierz i aktywuj wszystkie wierzchołki
+        for (int i = 0; i < n; i++)
+        {
+            aktywne[i] = true;
+            for (int j = 0; j < n; j++)
+            {
+                macierz[i, j] = 0;
+            }
+        }
+        
+        // Tablica do śledzenia stopni wierzchołków
+        int[] stopnie = new int[n];
+        int liczbaKrawedzi = 0;
+        
+        while (liczbaKrawedzi < docelowaLiczbaKrawedzi)
+        {
+            // Wybierz pierwszy wierzchołek z wagami
+            int v1 = WybierzWierzcholekZWagami(stopnie, rand);
+            
+            // Wybierz drugi wierzchołek z wagami (różny od pierwszego)
+            int v2;
+            int proby = 0;
+            do
+            {
+                v2 = WybierzWierzcholekZWagami(stopnie, rand);
+                proby++;
+                // Zabezpieczenie przed nieskończoną pętlą
+                if (proby > 1000)
+                {
+                    v2 = rand.Next(n);
+                    while (v2 == v1 || macierz[v1, v2] == 1)
+                    {
+                        v2 = rand.Next(n);
+                    }
+                    break;
+                }
+            } while (v2 == v1 || macierz[v1, v2] == 1); // Nie wybieraj tego samego ani istniejącej krawędzi
+            
+            // Dodaj krawędź (symetrycznie, bo graf nieskierowany)
+            macierz[v1, v2] = 1;
+            macierz[v2, v1] = 1;
+            
+            // Zaktualizuj stopnie
+            stopnie[v1]++;
+            stopnie[v2]++;
+            
+            liczbaKrawedzi++;
+        }
+    }
+
+    private int WybierzWierzcholekZWagami(int[] stopnie, Random rand)
+    {
+        int n = stopnie.Length;
+        
+        // Oblicz wagi dla wszystkich wierzchołków: (d + 2) / (d*d + 1)
+        double[] wagi = new double[n];
+        double sumaWag = 0;
+        
+        for (int i = 0; i < n; i++)
+        {
+            int d = stopnie[i];
+            wagi[i] = (d + 2.0) / (d * d + 1.0);
+            sumaWag += wagi[i];
+        }
+        
+        // Wybierz losowo na podstawie rozkładu prawdopodobieństwa
+        double losowa = rand.NextDouble() * sumaWag;
+        double akumulowana = 0;
+        
+        for (int i = 0; i < n; i++)
+        {
+            akumulowana += wagi[i];
+            if (losowa <= akumulowana)
+            {
+                return i;
+            }
+        }
+        
+        // Zabezpieczenie (nie powinno się zdarzyć)
+        return n - 1;
     }
     
     private char PlayGame(int idxA, int idxB)
@@ -156,25 +246,22 @@ public partial class MainWindowViewModel : ObservableObject
             rnd *= 1099087573;
             return rnd;
         };
-        Func<char> blubc = () =>
+        Func<char> plubn = () =>
         {
-            return nxtRnd() < 0x80000000 ? 'b' : 'c';
+            return nxtRnd() < 0x80000000 ? 'p' : 'n';
         };
-        var sterty = new string[10];
+        var aktywne = new bool[400];
+        int[,] macierz = new int[400, 400];
         Func<char, bool> canMove = c =>
         {
-            return sterty.Any(s => s.Contains(c));
-        };
-        uint i, j, d;
-        for (i = 0; i < 10; i++)
-        {
-            sterty[i] = i < 5 ? "b" : "c";
-            d = nxtRnd() % 20 + 20;
-            for (j = 0; j < d; j++)
+            int m = (c == 'p' ? 0 : 1);
+            for (int i = 0; i < 400; ++i)
             {
-                sterty[i] += blubc();
+                if (i % 2 == m && aktywne[i]) return true;
             }
-        }
+            return false;
+        };
+        GenerujLosowyGraf(aktywne, macierz);
         string Aname = _players[idxA - 1].Program;
         string Bname = _players[idxB - 1].Program;
         var processA = new Process
@@ -201,15 +288,31 @@ public partial class MainWindowViewModel : ObservableObject
         };
         string initialLineForA = "200 ";
         string initialLineForB = "200 ";
-        char colorA = blubc();
-        char colorB = colorA == 'c' ? 'b' : 'c';
-        initialLineForA += colorA;
-        initialLineForB += colorB;
-        initialLineForB += " |";
-        initialLineForA += " |";
-        for (i = 0; i < 10; i++)
+        char colorA = plubn();
+        char colorB = colorA == 'p' ? 'n' : 'p';
+        int nv = aktywne.Select(b => b ? 1 : 0).Sum();
+        int ne = 0;
+        for (int i = 0; i < 399; ++i)
         {
-            initialLineForA += $"{sterty[i]}|";
+            for (int j = i + 1; j < 400; ++j)
+            {
+                if (macierz[i, j] == 1 && aktywne[i] && aktywne[j]) ++ne;
+            }
+        }
+        initialLineForA += $"{nv} {ne} {colorA}";
+        for (int i = 0; i < 400; ++i)
+        {
+            if (aktywne[i]) initialLineForA += $" {i}";
+        }
+        for (int i = 0; i < 399; ++i)
+        {
+            for (int j = i + 1; j < 400; ++j)
+            {
+                if (macierz[i, j] == 1 && aktywne[i] && aktywne[j])
+                {
+                    initialLineForA += $" {i} {j}";
+                }
+            }
         }
         Stopwatch stopwatch = new Stopwatch();
         TimeSpan elapsedTime;
@@ -240,11 +343,31 @@ public partial class MainWindowViewModel : ObservableObject
             }
             else
             {
-                if (ZapiszRuch(message, ref sterty, colorA))
+                if (ZapiszRuch(message, aktywne, macierz, colorA))
                 {
-                    for (i = 0; i < 10; i++)
+                    nv = aktywne.Select(b => b ? 1 : 0).Sum();
+                    ne = 0;
+                    for (int i = 0; i < 399; ++i)
                     {
-                        initialLineForB += $"{sterty[i]}|";
+                        for (int j = i + 1; j < 400; ++j)
+                        {
+                            if (macierz[i, j] == 1 && aktywne[i] && aktywne[j]) ++ne;
+                        }
+                    }
+                    initialLineForB += $"{nv} {ne} {colorB}";
+                    for (int i = 0; i < 400; ++i)
+                    {
+                        if (aktywne[i]) initialLineForB += $" {i}";
+                    }
+                    for (int i = 0; i < 399; ++i)
+                    {
+                        for (int j = i + 1; j < 400; ++j)
+                        {
+                            if (macierz[i, j] == 1 && aktywne[i] && aktywne[j])
+                            {
+                                initialLineForB += $" {i} {j}";
+                            }
+                        }
                     }
                     writerB.WriteLine(initialLineForB);
                     Logs += $"Do z{idxB}: {initialLineForB}\n";
@@ -277,12 +400,12 @@ public partial class MainWindowViewModel : ObservableObject
                 }
                 else
                 {
-                    if (ZapiszRuch(message, ref sterty, colorB))
+                    if (ZapiszRuch(message, aktywne, macierz, colorB))
                     {
                         if (canMove(colorA))
                         {
-                            writerA.WriteLine(message!.Replace("210", "220"));
-                            Logs += $"Do z{idxA}: {message!.Replace("210", "220")}\n";
+                            writerA.WriteLine(message!.Replace("210 ", "220 "));
+                            Logs += $"Do z{idxA}: {message!.Replace("210 ", "220 ")}\n";
                             kod = 220;
                             stopwatch.Restart();
                             message = readerA.ReadLine();
@@ -300,12 +423,12 @@ public partial class MainWindowViewModel : ObservableObject
                             }
                             else
                             {
-                                if (ZapiszRuch(message, ref sterty, colorA))
+                                if (ZapiszRuch(message, aktywne, macierz, colorA))
                                 {
                                     if (canMove(colorB))
                                     {
-                                        writerB.WriteLine(message!.Replace("210", "220"));
-                                        Logs += $"Do z{idxB}: {message!.Replace("210", "220")}\n";
+                                        writerB.WriteLine(message!.Replace("210 ", "220 "));
+                                        Logs += $"Do z{idxB}: {message!.Replace("210 ", "220 ")}\n";
                                         kod = 220;
                                         stopwatch.Restart();
                                     }
