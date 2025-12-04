@@ -109,7 +109,7 @@ public partial class MainWindowViewModel : ObservableObject
         BuildPlayersTableFromList();
     }
 
-    private bool ZapiszRuch(string? message, bool[] aktywne, int[,] macierz, char color)
+    private bool ZapiszRuch(string? message, bool[] aktywne, int[,] macierz)
     {
         if (string.IsNullOrEmpty(message) || !message.StartsWith("210"))
         {
@@ -121,7 +121,7 @@ public partial class MainWindowViewModel : ObservableObject
             words = words.Append("").ToArray();
         }
         int nr = int.Parse(words[1]);
-        if (nr < 0 || nr > 399 || !aktywne[nr] || (color == 'p' && nr % 2 != 0) || (color == 'n' && nr % 2 == 0))
+        if (nr < 0 || nr > 399 || !aktywne[nr])
         {
             return false;
         }
@@ -246,18 +246,13 @@ public partial class MainWindowViewModel : ObservableObject
             rnd *= 1099087573;
             return rnd;
         };
-        Func<char> plubn = () =>
-        {
-            return nxtRnd() < 0x80000000 ? 'p' : 'n';
-        };
         var aktywne = new bool[400];
         int[,] macierz = new int[400, 400];
-        Func<char, bool> canMove = c =>
+        Func<bool> canMove = () =>
         {
-            int m = (c == 'p' ? 0 : 1);
             for (int i = 0; i < 400; ++i)
             {
-                if (i % 2 == m && aktywne[i]) return true;
+                if (aktywne[i]) return true;
             }
             return false;
         };
@@ -288,8 +283,6 @@ public partial class MainWindowViewModel : ObservableObject
         };
         string initialLineForA = "200 ";
         string initialLineForB = "200 ";
-        char colorA = plubn();
-        char colorB = colorA == 'p' ? 'n' : 'p';
         int nv = aktywne.Select(b => b ? 1 : 0).Sum();
         int ne = 0;
         for (int i = 0; i < 399; ++i)
@@ -299,7 +292,7 @@ public partial class MainWindowViewModel : ObservableObject
                 if (macierz[i, j] == 1 && aktywne[i] && aktywne[j]) ++ne;
             }
         }
-        initialLineForA += $"{nv} {ne} {colorA}";
+        initialLineForA += $"{nv} {ne}";
         for (int i = 0; i < 400; ++i)
         {
             if (aktywne[i]) initialLineForA += $" {i}";
@@ -343,7 +336,7 @@ public partial class MainWindowViewModel : ObservableObject
             }
             else
             {
-                if (ZapiszRuch(message, aktywne, macierz, colorA))
+                if (ZapiszRuch(message, aktywne, macierz))
                 {
                     nv = aktywne.Select(b => b ? 1 : 0).Sum();
                     ne = 0;
@@ -354,7 +347,7 @@ public partial class MainWindowViewModel : ObservableObject
                             if (macierz[i, j] == 1 && aktywne[i] && aktywne[j]) ++ne;
                         }
                     }
-                    initialLineForB += $"{nv} {ne} {colorB}";
+                    initialLineForB += $"{nv} {ne}";
                     for (int i = 0; i < 400; ++i)
                     {
                         if (aktywne[i]) initialLineForB += $" {i}";
@@ -400,9 +393,9 @@ public partial class MainWindowViewModel : ObservableObject
                 }
                 else
                 {
-                    if (ZapiszRuch(message, aktywne, macierz, colorB))
+                    if (ZapiszRuch(message, aktywne, macierz))
                     {
-                        if (canMove(colorA))
+                        if (canMove())
                         {
                             writerA.WriteLine(message!.Replace("210 ", "220 "));
                             Logs += $"Do z{idxA}: {message!.Replace("210 ", "220 ")}\n";
@@ -423,9 +416,9 @@ public partial class MainWindowViewModel : ObservableObject
                             }
                             else
                             {
-                                if (ZapiszRuch(message, aktywne, macierz, colorA))
+                                if (ZapiszRuch(message, aktywne, macierz))
                                 {
-                                    if (canMove(colorB))
+                                    if (canMove())
                                     {
                                         writerB.WriteLine(message!.Replace("210 ", "220 "));
                                         Logs += $"Do z{idxB}: {message!.Replace("210 ", "220 ")}\n";
